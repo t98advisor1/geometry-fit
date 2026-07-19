@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>지오메트리 핏 - 어드밴스드 (고등용)</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+    
+    <!-- MediaPipe Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+
+    <!-- MathJax Configuration & Library -->
+    <script>
+        MathJax = {
+            tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+            startup: { typeset: false } // 초기 자동 렌더링 방지, 수동 제어
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --neon-blue: #00f3ff;
+            --neon-pink: #ff00ea;
+            --neon-green: #39ff14;
+            --bg-dark: #090a0f;
+        }
+        body { 
+            font-family: 'Noto Sans KR', sans-serif; 
+            background-color: var(--bg-dark); 
+            color: #ffffff; 
+            overflow: hidden; 
+        }
+        h1, h2, h3, .orbitron { font-family: 'Orbitron', sans-serif; }
+        
+        .text-glow { text-shadow: 0 0 15px var(--neon-blue); }
+        .text-glow-green { text-shadow: 0 0 15px var(--neon-green); }
+        .text-glow-pink { text-shadow: 0 0 15px var(--neon-pink); }
+        
+        .btn-neon { 
+            background: rgba(0, 0, 0, 0.6); 
+            border: 2px solid var(--neon-blue); 
+            color: #ffffff; 
+            padding: 20px 40px; 
+            font-size: 1.5rem; 
+            font-weight: 700; 
+            transition: all 0.3s ease; 
+            border-radius: 12px; 
+            box-shadow: inset 0 0 10px rgba(0, 243, 255, 0.2);
+            backdrop-filter: blur(5px);
+        }
+        .btn-neon:hover { 
+            background: var(--neon-blue); 
+            color: #000; 
+            box-shadow: 0 0 25px var(--neon-blue); 
+        }
+        
+        .glass-panel { 
+            background: rgba(10, 15, 30, 0.9); 
+            border: 1px solid rgba(0, 243, 255, 0.5); 
+            backdrop-filter: blur(15px); 
+            border-radius: 20px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        }
+        
+        .hidden-screen { display: none !important; }
+        
+        .input_video { display: none; }
+        .output_canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* 거울 모드 */
+            opacity: 0.8; /* 다크모드 분위기를 위해 약간 어둡게 */
+        }
+
+        /* 텍스트 가독성 최적화 */
+        .reading-text {
+            font-size: 1.35rem;
+            line-height: 1.8;
+            color: #e2e8f0; /* 밝은 회색으로 눈의 피로 감소 */
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        }
+    </style>
+</head>
+<body class="w-screen h-screen flex flex-col relative">
+
+    <!-- 배경 그리드 패턴 -->
+    <div class="absolute inset-0 pointer-events-none opacity-20" style="background-image: linear-gradient(#00f3ff 1px, transparent 1px), linear-gradient(90deg, #00f3ff 1px, transparent 1px); background-size: 50px 50px;"></div>
+
+    <!-- 1. 메인 홈 화면 -->
+    <div id="screen-home" class="absolute inset-0 z-10 flex flex-col items-center justify-center p-8">
+        <h1 class="text-7xl md:text-8xl font-black mb-4 tracking-widest text-glow text-center">GEOMETRY FIT</h1>
+        <h2 class="text-4xl text-pink-500 mb-16 tracking-widest font-bold text-glow-pink">ADVANCED PROTOCOL</h2>
+        
+        <div class="grid grid-cols-2 gap-8 w-full max-w-5xl">
+            <button onclick="startGame()" class="btn-neon col-span-2 !border-green-400 !text-green-400 hover:!bg-green-400 hover:!text-black !text-3xl py-6">
+                [ INIT SEQUENCE : 게임 시작 ]
+            </button>
+            <button onclick="showMenu()" class="btn-neon">
+                [ MATH THEORY : 수학 이론 ]
+            </button>
+            <button onclick="showRanking()" class="btn-neon">
+                [ DATA ARCHIVE : 랭킹 보기 ]
+            </button>
+        </div>
+
+        <footer class="absolute bottom-6 text-xl text-gray-400 font-bold bg-black/50 px-6 py-2 rounded-full border border-gray-700 z-50">
+            COPYRIGHT @ <a href="https://blog.naver.com/math-tong/224349597540" target="_blank" class="text-cyan-400 hover:text-cyan-300 underline transition-colors">MATH-TONG</a>
+        </footer>
+    </div>
+
+    <!-- 2. 수학 이론 선택 메뉴 -->
+    <div id="screen-menu" class="hidden-screen absolute inset-0 bg-black/95 z-[70] flex flex-col items-center justify-center p-10">
+        <h2 class="text-5xl mb-12 text-cyan-400 text-glow font-bold orbitron">SELECT THEORY MODULE</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-6xl">
+            <button onclick="openMathCarousel(0)" class="btn-neon !text-2xl text-left pl-10 flex flex-col gap-2">
+                <span class="text-gray-400 text-sm">MODULE 01</span>
+                <span>좌표계와 위치 벡터</span>
+            </button>
+            <button onclick="openMathCarousel(1)" class="btn-neon !text-2xl text-left pl-10 flex flex-col gap-2">
+                <span class="text-gray-400 text-sm">MODULE 02</span>
+                <span>내적(Dot Product)의 기하학</span>
+            </button>
+            <button onclick="openMathCarousel(2)" class="btn-neon !text-2xl text-left pl-10 flex flex-col gap-2">
+                <span class="text-gray-400 text-sm">MODULE 03</span>
+                <span>역삼각함수와 회전 각도</span>
+            </button>
+            <button onclick="openMathCarousel(3)" class="btn-neon !text-2xl text-left pl-10 flex flex-col gap-2">
+                <span class="text-gray-400 text-sm">MODULE 04</span>
+                <span>외적과 공간 벡터의 응용</span>
+            </button>
+        </div>
+        <button onclick="hideMenu()" class="mt-16 text-2xl text-gray-400 hover:text-white transition underline tracking-widest">RETURN TO BASE</button>
+    </div>
+
+    <!-- 3. 수학 이론 상세 읽기 자료 (캐러셀) -->
+    <div id="screen-math" class="hidden-screen absolute inset-0 bg-black/95 z-[80] flex flex-col items-center justify-center p-8 md:p-12">
+        <div id="math-carousel-container" class="w-full max-w-6xl flex flex-col items-center">
+            <!-- JS로 내용 렌더링 됨 -->
+        </div>
+    </div>
+
+    <script>
+        // 4가지 심층 기하학 이론 데이터 (각 10페이지 읽기 자료)
+        const mathTheories = [
+            { id: 0, title: "좌표계와 위치 벡터 (Coordinate & Vectors)", youtubeLink: "https://youtu.be/fNk_zzaMoSs", youtubeTitle: "추천 영상: [3Blue1Brown] 벡터란 무엇인가?", pages: [
+                "**1. 디지털 세계의 공간 인식**<br>우리가 보고 있는 웹캠 화면은 사실 엄청나게 많은 점(Pixel)들로 이루어진 거대한 격자입니다. 컴퓨터는 이 공간을 이해하기 위해 데카르트 좌표계(Cartesian Coordinate System)를 사용합니다. 화면의 좌측 상단이 원점 \\( (0, 0) \\)이 되고, 오른쪽으로 갈수록 \\( x \\)값이, 아래로 갈수록 \\( y \\)값이 증가합니다.",
+                "**2. 점(Point)에서 벡터(Vector)로**<br>화면에 여러분의 '어깨'와 '손목'이 인식되었다고 가정해 봅시다. 이들은 각각 \\( A(x_1, y_1) \\)와 \\( B(x_2, y_2) \\)라는 점입니다. 기하학에서는 이 두 점을 연결하여 방향과 크기를 가진 **위치 벡터(Position Vector)**를 만듭니다. 어깨에서 손목으로 향하는 벡터는 \\( \\vec{v} = \\vec{AB} = B - A \\) 로 정의됩니다.",
+                "**3. 벡터의 성분 표시**<br>위치 벡터 \\( \\vec{v} \\)를 계산하는 방법은 끝점의 좌표에서 시작점의 좌표를 빼는 것입니다. 즉, 대수적으로는 \\[ \\vec{v} = (x_2 - x_1, y_2 - y_1) \\] 이 됩니다. 이 연산 덕분에 화면 어디에 서 있든, 기준점(어깨)으로부터 팔이 어느 '방향'으로 향하고 있는지 절대적으로 파악할 수 있게 됩니다.",
+                "**4. 벡터의 크기와 노름(Norm)**<br>그렇다면 팔의 길이는 어떻게 구할까요? 피타고라스의 정리를 공간으로 확장한 것이 바로 벡터의 크기, 즉 노름(Norm)입니다. 기호로는 \\( |\\vec{v}| \\) 로 표기하며, 계산식은 \\[ |\\vec{v}| = \\sqrt{(x_2 - x_1)^2 + (y_2 - y_1)^2} \\] 입니다. 이는 3차원 공간에서도 성분만 추가하여 동일하게 적용됩니다.",
+                "**5. 정규화(Normalization)와 단위 벡터**<br>컴퓨터 비전 모델에서는 사람마다 체형이 다르고 카메라와의 거리가 다르기 때문에 '팔의 길이' 자체는 중요하지 않을 때가 많습니다. 이때 벡터의 방향만을 남기기 위해 벡터를 자신의 크기로 나누어 길이를 1로 만드는 과정을 거치는데, 이를 '정규화'라고 하며 생성된 벡터를 **단위 벡터(Unit Vector)** \\( \\hat{v} \\) 라고 부릅니다. \\[ \\hat{v} = \\frac{\\vec{v}}{|\\vec{v}|} \\]",
+                "**6. 미디어파이프와 정규화된 좌표계**<br>실제로 이 앱에서 사용 중인 MediaPipe AI는 웹캠의 해상도(예: 1920x1080)에 종속되지 않도록, 모든 좌표를 \\( 0.0 \\) 에서 \\( 1.0 \\) 사이의 실수 값으로 **정규화(Normalized)**하여 반환합니다. 화면 정중앙의 좌표는 해상도에 상관없이 항상 \\( (0.5, 0.5) \\)가 되어 수학적 연산의 범용성을 극대화합니다.",
+                "**7. 프레임 변환(Frame Transformation)**<br>게임을 할 때 몸을 이동하더라도 관절의 각도는 변하지 않아야 합니다. 이를 위해 우리는 카메라의 '전역 좌표계(Global Frame)' 대신, 어깨나 골반을 새로운 원점으로 삼는 '국소 좌표계(Local Frame)'로 벡터를 변환하여 연산합니다. 이는 선형대수학의 기저 변환(Basis Transformation) 원리와 맞닿아 있습니다.",
+                "**8. 왜 벡터를 사용해야 할까?**<br>과거에는 각도를 재기 위해 복잡한 삼각함수나 직선의 방정식을 직접 세웠습니다. 하지만 벡터를 사용하면, 좌표의 덧셈과 뺄셈 같은 아주 단순한 다항식 연산만으로도 공간 상의 움직임을 완벽하게 추적하고 모델링할 수 있습니다. 연산 속도가 생명인 실시간 렌더링에서 벡터는 선택이 아닌 필수입니다.",
+                "**9. 노이즈 필터링과 통계학**<br>실제 웹캠 데이터는 빛이나 흔들림으로 인해 좌표값이 미세하게 튀는 '노이즈(Noise)' 현상이 발생합니다. 이를 수학적으로 보정하기 위해 칼만 필터(Kalman Filter)나 가우시안 평활화(Gaussian Smoothing) 같은 통계적 기법을 적용하여 벡터의 궤적을 부드럽게 만듭니다.",
+                "**10. 실습: 지오메트리 핏의 시작**<br>여러분이 카메라 앞에서 팔을 뻗는 순간, 매 프레임(초당 30번)마다 몸의 33개 관절 좌표가 추출되고 수백 개의 위치 벡터가 생성됩니다. 이제 이 벡터들을 재료로 삼아, 이어지는 모듈에서 어떻게 각도를 계산하고 게임 미션을 판별하는지 알아보겠습니다."
+            ]},
+            { id: 1, title: "내적(Dot Product)의 기하학", youtubeLink: "https://youtu.be/LyGKycYT2v0", youtubeTitle: "추천 영상: [3Blue1Brown] 내적(Dot Product)", pages: [
+                "**1. 내적이란 무엇인가?**<br>두 벡터 \\( \\vec{a} \\)와 \\( \\vec{b} \\)를 곱하는 방법 중 하나인 내적(Dot Product)은 그 결과값이 벡터가 아닌 하나의 '실수(Scalar)'로 나오는 연산입니다. 기호로는 가운데 점을 찍어 \\( \\vec{a} \\cdot \\vec{b} \\) 로 표기하며, 스칼라곱(Scalar Product)이라고도 부릅니다.",
+                "**2. 내적의 대수적 계산**<br>2차원 평면에서 두 벡터 \\( \\vec{a} = (a_1, a_2) \\)와 \\( \\vec{b} = (b_1, b_2) \\)가 있을 때, 대수적 내적 공식은 매우 단순합니다. 각 성분끼리 곱해서 더하기만 하면 됩니다. \\[ \\vec{a} \\cdot \\vec{b} = a_1b_1 + a_2b_2 \\] 연산이 덧셈과 곱셈뿐이라 컴퓨터가 계산하기에 압도적으로 빠릅니다.",
+                "**3. 내적의 기하학적 의미**<br>내적의 진정한 위력은 기하학적 정의에서 나옵니다. 두 벡터 사이의 끼인각을 \\( \\theta \\)라고 할 때, 기하학적 공식은 다음과 같습니다. \\[ \\vec{a} \\cdot \\vec{b} = |\\vec{a}||\\vec{b}| \\cos\\theta \\] 이는 한 벡터를 다른 벡터의 방향으로 수직으로 비추었을 때(투영, Projection) 겹치는 길이의 정도를 의미합니다.",
+                "**4. 두 정의의 아름다운 결합**<br>대수적 공식과 기하학적 공식을 하나로 묶으면 우리는 엄청난 무기를 얻게 됩니다. 좌표만 알고 있다면, 직접 각도를 재지 않고도 두 선분이 이루는 각도 \\( \\theta \\)의 코사인 값을 찾아낼 수 있습니다. \\[ \\cos\\theta = \\frac{a_1b_1 + a_2b_2}{|\\vec{a}||\\vec{b}|} \\]",
+                "**5. 직교성(Orthogonality)의 판별**<br>이 앱에서 **[직각 만들기]** 미션을 달성하려면 어떻게 코딩해야 할까요? \\( \\cos(90^\\circ) = 0 \\)이므로, 두 벡터가 직각을 이룰 때 내적 값은 정확히 0이 됩니다. 즉, 무거운 삼각함수를 쓸 필요 없이 \\( a_1b_1 + a_2b_2 = 0 \\) 인지만 확인하면 두 팔이 직각인지 알아낼 수 있습니다!",
+                "**6. 내적의 부호와 둔각/예각**<br>내적의 결과값 부호만 보고도 팔의 상태를 알 수 있습니다. 코사인 함수의 성질에 따라, 내적값이 양수(+)이면 두 팔은 **예각(0~90도)**을 이루고, 음수(-)이면 **둔각(90~180도)**을 이루고 있음을 의미합니다. 내적은 방향의 일치도를 보여주는 완벽한 지표입니다.",
+                "**7. 정규화와 코사인 유사도**<br>만약 두 벡터를 앞서 배운 단위 벡터로 정규화했다면, 크기 \\( |\\vec{a}| \\)와 \\( |\\vec{b}| \\)가 모두 1이 됩니다. 이때 내적을 구하면 계산 결과가 곧바로 \\( \\cos\\theta \\) 자체가 됩니다. 이를 인공지능 분야에서는 데이터의 유사성을 판단하는 **코사인 유사도(Cosine Similarity)**라고 부릅니다.",
+                "**8. 제2 코사인 법칙과의 관계**<br>이 내적 공식은 하늘에서 뚝 떨어진 것이 아닙니다. 삼각형의 세 변의 길이 관계를 설명하는 고등학교 수학의 핵심 원리인 '제2 코사인 법칙'을 벡터의 언어로 세련되게 재작성한 것이 바로 내적의 기하학적 정의입니다.",
+                "**9. 3차원 공간으로의 무한한 확장**<br>대수적 공식을 보면 차원이 늘어나도 \\( z \\)성분 하나만 더해주면 됩니다. \\( \\vec{a} \\cdot \\vec{b} = a_1b_1 + a_2b_2 + a_3b_3 \\). 이처럼 내적은 2차원이든 3차원이든, 심지어 100차원 데이터 공간이든 동일한 논리로 각도와 유사성을 계산할 수 있게 해주는 마법의 공식입니다.",
+                "**10. 3D 게임 물리엔진과 빛의 렌더링**<br>이러한 내적의 성질은 실시간 게임 엔진에 필수적입니다. 캐릭터가 벽에 부딪히는지(충돌 감지), 광원이 3D 모델의 표면을 얼마나 밝게 비추어야 하는지(퐁 쉐이딩, Phong Shading) 계산할 때, 초당 수백만 번의 내적 연산이 컴퓨터 그래픽 카드(GPU)에서 일어나고 있습니다."
+            ]},
+            { id: 2, title: "역삼각함수와 회전 각도", youtubeLink: "https://www.youtube.com/results?search_query=%EC%97%AD%EC%82%BC%EA%B0%81%ED%95%A8%EC%88%98+atan2", youtubeTitle: "추천 영상: 역삼각함수와 atan2 (유튜브 검색)", pages: [
+                "**1. 각도를 되찾는 마법, 역함수**<br>내적을 통해 \\( \\cos\\theta \\) 값을 알아내는 데 성공했습니다. 하지만 화면에 '당신의 각도는 0.5 코사인입니다'라고 출력할 수는 없습니다. 우리가 아는 친숙한 각도(예: 60도)로 되돌리기 위해서는 코사인 함수의 반대 과정, 즉 **역삼각함수(Inverse Trigonometric Function)**가 필요합니다.",
+                "**2. 아크코사인 (Arccosine)**<br>코사인 값에서 원래의 각도 \\( \\theta \\)를 역산해 내는 함수를 아크코사인이라고 부르며, 기호로는 \\( \\arccos \\) 또는 \\( \\cos^{-1} \\) 로 적습니다. 공식을 정리하면 다음과 같습니다. \\[ \\theta = \\arccos\\left( \\frac{\\vec{a} \\cdot \\vec{b}}{|\\vec{a}||\\vec{b}|} \\right) \\]",
+                "**3. 아크코사인의 한계**<br>하지만 아크코사인은 치명적인 단점이 있습니다. 코사인 그래프의 성질 때문에, 아크코사인이 반환하는 각도는 오직 \\( 0 \\)에서 \\( \\pi \\) (180도) 사이의 값뿐입니다. 팔을 위로 꺾었는지 아래로 꺾었는지, 즉 회전의 '방향'을 구분하지 못하고 절대적인 사잇각만 알려줍니다.",
+                "**4. 아크탄젠트 (Arctangent)의 등장**<br>공간상의 정확한 방향각(Heading)을 알기 위해서는 탄젠트의 역함수인 아크탄젠트( \\( \\arctan \\) )를 활용해야 합니다. 벡터의 성분이 \\( (x, y) \\)일 때, 탄젠트 값은 \\( \\frac{y}{x} \\)이므로, 각도는 \\( \\theta = \\arctan(\\frac{y}{x}) \\) 로 도출할 수 있습니다.",
+                "**5. 프로그래머들의 무기: atan2**<br>하지만 \\( \\frac{y}{x} \\)에서 분모 \\( x \\)가 0이 되면 컴퓨터는 '0으로 나누기 오류(Division by Zero)'를 뿜고 멈춰버립니다. 게다가 1사분면과 3사분면의 부호 구분이 모호합니다. 이를 완벽히 해결하기 위해 컴퓨터 공학자들은 **`atan2(y, x)`** 라는 특수한 내장 함수를 발명했습니다.",
+                "**6. atan2의 원리와 위력**<br>이 앱의 게임 알고리즘 핵심이 바로 `atan2` 입니다. `atan2`는 단순히 나눗셈을 하는 것이 아니라, 내부적으로 \\( x \\)와 \\( y \\)의 부호를 각각 판별하여 점이 1~4사분면 중 어디에 있는지 정확히 파악합니다. 이를 통해 \\( -180^\\circ \\)부터 \\( +180^\\circ \\)까지 360도의 모든 방향각을 안전하게 반환합니다.",
+                "**7. 세 점으로 사이각 구하기 알고리즘**<br>어깨(A), 팔꿈치(B), 손목(C)으로 이루어진 각도 \\( \\angle ABC \\)를 프로그래밍으로 구하는 가장 우아한 방법은 다음과 같습니다.<br>1. 선분 BA의 절대 방향각: `ang1 = atan2(A.y - B.y, A.x - B.x)`<br>2. 선분 BC의 절대 방향각: `ang2 = atan2(C.y - B.y, C.x - B.x)`<br>3. 사이각: `|ang1 - ang2|`",
+                "**8. 라디안(Radian)에서 디그리(Degree)로**<br>컴퓨터와 수학 함수가 뱉어내는 각도는 우리가 쓰는 360도 체계(Degree)가 아니라 호도법인 '라디안(Radian)'입니다. 화면에 우리가 읽을 수 있는 각도를 띄우기 위해서는 반드시 변환 과정을 거쳐야 합니다. \\[ \\text{Degree} = \\text{Radian} \\times \\frac{180}{\\pi} \\]",
+                "**9. 회전 행렬(Rotation Matrix)**<br>찾아낸 각도 \\( \\theta \\)를 이용해 2차원 평면의 캐릭터를 회전시키려면 선형대수학의 **회전 행렬**을 곱해야 합니다. \\[ \\begin{pmatrix} x' \\\\ y' \\end{pmatrix} = \\begin{pmatrix} \\cos\\theta & -\\sin\\theta \\\\ \\sin\\theta & \\cos\\theta \\end{pmatrix} \\begin{pmatrix} x \\\\ y \\end{pmatrix} \\] 여러분의 움직임이 게임 아바타에 매끄럽게 동기화되는 원리입니다.",
+                "**10. 요약: 현실과 가상을 잇는 다리**<br>삼각함수는 단순한 삼각형의 비율이 아닙니다. 역삼각함수와 벡터의 결합은 현실 세계의 아날로그적인 움직임(팔을 휘두르는 행위)을 컴퓨터가 이해할 수 있는 정교한 디지털 수치(회전 각도)로 번역해 주는 가장 강력한 번역기입니다."
+            ]},
+            { id: 3, title: "외적(Cross Product)과 공간 벡터", youtubeLink: "https://youtu.be/eu6i7WJeinw", youtubeTitle: "추천 영상: [3Blue1Brown] 외적(Cross Product)", pages: [
+                "**1. 3차원으로의 도약**<br>웹캠은 2D 이미지처럼 보이지만, MediaPipe 인공지능은 딥러닝을 통해 화면 속 인물의 깊이(Depth, Z축)를 추론해 냅니다. 이제 우리의 데이터는 \\( (x, y) \\)를 넘어 3차원 벡터 \\( \\vec{v} = (x, y, z) \\) 가 됩니다. 3차원에서는 내적 외에 또 다른 강력한 곱셈인 **외적(Cross Product)**이 존재합니다.",
+                "**2. 외적의 정의**<br>내적이 결과로 '스칼라(숫자)'를 내놓았다면, 외적은 두 벡터를 곱해 **새로운 제3의 '벡터'**를 만들어냅니다. 기호로는 \\( \\vec{a} \\times \\vec{b} \\) 로 표기합니다. 외적으로 탄생한 벡터는 놀랍게도 원래의 두 벡터 \\( \\vec{a} \\)와 \\( \\vec{b} \\)가 이루는 평면에 **항상 수직(Perpendicular)**입니다.",
+                "**3. 오른손 법칙 (Right-Hand Rule)**<br>수직인 방향은 위와 아래 두 가지가 있습니다. 외적 벡터가 어느 쪽을 향할지는 물리학의 '오른손 법칙'을 따릅니다. 오른손의 네 손가락을 \\( \\vec{a} \\)에서 \\( \\vec{b} \\) 방향으로 감아쥘 때, 엄지손가락이 가리키는 방향이 바로 새로운 외적 벡터의 방향(법선 벡터, Normal Vector)이 됩니다.",
+                "**4. 외적의 크기와 기하학적 의미**<br>새롭게 생성된 외적 벡터의 길이(크기)는 얼마일까요? 공식은 다음과 같습니다. \\[ |\\vec{a} \\times \\vec{b}| = |\\vec{a}||\\vec{b}| \\sin\\theta \\] 이 수식은 기하학적으로 아주 중요한 의미를 갖는데, 바로 두 벡터가 그리는 **평행사변형의 넓이**와 정확히 일치합니다.",
+                "**5. 평행선 미션과 외적**<br>이 앱의 **[평행선 만들기]** 미션을 가장 완벽하게 수학으로 판별하는 방법은 무엇일까요? 두 벡터(양팔)가 완벽히 평행하다면 사이각 \\( \\theta = 0^\\circ \\) 또는 \\( 180^\\circ \\)입니다. \\( \\sin(0) = 0 \\)이므로 평행한 두 벡터를 외적하면 그 크기는 0(영벡터)이 됩니다. 즉, 외적값이 0인지 확인하면 됩니다!",
+                "**6. 3D 그래픽스와 면 판별 (Backface Culling)**<br>외적은 3D 게임 엔진 최적화의 핵심입니다. 삼각형 폴리곤으로 이루어진 3D 모델에서, 두 변을 외적하여 법선 벡터를 구합니다. 이 법선 벡터가 카메라(플레이어의 시선)를 향하는지 반대(내적 이용)를 향하는지 계산하여, 뒷면을 그리지 않고 연산량을 절반으로 줄이는 기법이 적용됩니다.",
+                "**7. CCW (Counter Clockwise) 알고리즘**<br>선분 교차 미션을 수행할 때 두 팔이 교차했는지 어떻게 알까요? 외적을 2차원으로 단순화한 CCW 알고리즘을 사용합니다. 세 점을 순서대로 외적했을 때 결과값의 부호(+/-)를 통해 선분의 진행 방향이 좌회전인지 우회전인지 파악하여, 교차 여부를 완벽하게 판별합니다.",
+                "**8. 물리 엔진과 회전 운동**<br>외적은 물리학의 회전 운동을 지배합니다. 문을 밀어 회전시키는 힘인 '토크(Torque)'는 기준점으로부터의 위치 벡터 \\( \\vec{r} \\)과 가한 힘 \\( \\vec{F} \\)의 외적 \\[ \\vec{\\tau} = \\vec{r} \\times \\vec{F} \\] 로 계산됩니다. 뼈대 시뮬레이션에서 관절이 꺾이는 물리 효과 역시 외적으로 구현됩니다.",
+                "**9. 왜 4원수(Quaternion)가 필요한가**<br>외적과 3차원 회전 행렬을 사용하다 보면 '짐벌 락(Gimbal Lock)'이라는 축이 겹쳐 회전이 고장나는 현상이 발생합니다. 이를 극복하기 위해 게임 엔진들은 복소수를 확장하여 4차원 공간에서 회전을 정의하는 '쿼터니언'이라는 고등 수학을 사용하여 부드러운 3D 모션을 만듭니다.",
+                "**10. 융합의 미학**<br>단순히 거울 앞에서 몸을 움직이는 것 같지만, 여러분의 화면 뒤에서는 매 초당 수천 번의 벡터 공간 변환, 내적, 외적, 그리고 통계적 확률 계산이 맞물려 돌아가고 있습니다. 수학은 세상을 묘사하는 가장 완벽하고 아름다운 프로그래밍 언어입니다."
+            ]}
+        ];
+
+        let currentModule = 0;
+        let currentPage = 0;
+
+        function showMenu() {
+            document.getElementById('screen-home').classList.add('hidden-screen');
+            document.getElementById('screen-menu').classList.remove('hidden-screen');
+        }
+
+        function hideMenu() {
+            document.getElementById('screen-menu').classList.add('hidden-screen');
+            document.getElementById('screen-home').classList.remove('hidden-screen');
+        }
+
+        function openMathCarousel(id) {
+            currentModule = id;
+            currentPage = 0;
+            document.getElementById('screen-menu').classList.add('hidden-screen');
+            document.getElementById('screen-math').classList.remove('hidden-screen');
+            renderMathPage();
+        }
+
+        async function renderMathPage() {
+            const container = document.getElementById('math-carousel-container');
+            const data = mathTheories[currentModule];
+            
+            // 볼드체 마크다운(**)을 시각적으로 강조된 핑크색 HTML 태그로 변환
+            let pageContent = data.pages[currentPage].replace(/\*\*(.*?)\*\*/g, '<strong class="text-pink-400 font-bold">$1</strong>');
+
+            // 마지막 10번째 페이지일 경우 유튜브 추천 영상 버튼 동적 추가
+            let youtubeButton = '';
+            if (currentPage === data.pages.length - 1 && data.youtubeLink) {
+                youtubeButton = `
+                    <div class="mt-10 flex justify-center w-full animate-[pulse_3s_ease-in-out_infinite]">
+                        <a href="${data.youtubeLink}" target="_blank" rel="noopener noreferrer" class="bg-red-600/90 hover:bg-red-500 border border-red-400 text-white px-6 py-3 rounded-xl font-bold text-lg transition-all flex items-center gap-3 shadow-[0_0_20px_rgba(255,0,0,0.4)]">
+                            <svg class="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
+                            ${data.youtubeTitle}
+                        </a>
+                    </div>
+                `;
+            }
+
+            // 페이지 상태 표시 점선 생성
+            let dots = '';
+            for(let i=0; i<10; i++) {
+                dots += `<div class="w-3 h-3 rounded-full ${i === currentPage ? 'bg-cyan-400 shadow-[0_0_8px_#00f3ff]' : 'bg-gray-600'}"></div>`;
+            }
+
+            container.innerHTML = `
+                <div class="w-full flex justify-between items-center mb-6">
+                    <span class="text-cyan-400 font-bold orbitron tracking-widest">MODULE 0${currentModule + 1}</span>
+                    <button onclick="hideMath()" class="text-gray-400 hover:text-pink-500 text-2xl transition">✖ CLOSE</button>
+                </div>
+                <h2 class="text-4xl md:text-5xl font-bold mb-8 text-white orbitron text-glow text-center">${data.title}</h2>
+                
+                <div class="glass-panel p-8 md:p-12 w-full min-h-[400px] flex flex-col justify-center border-t-4 border-t-cyan-400 relative">
+                    <p class="reading-text text-xl md:text-2xl">${pageContent}</p>
+                    ${youtubeButton}
+                </div>
+                
+                <div class="mt-10 flex gap-4">${dots}</div>
+                
+                <div class="mt-8 flex gap-8 items-center w-full justify-center">
+                    <button onclick="changePage(-1)" class="btn-neon !text-lg !py-3 !px-6 ${currentPage === 0 ? 'opacity-50 pointer-events-none' : ''}">◀ PREV</button>
+                    <span class="text-2xl font-bold orbitron w-24 text-center">${currentPage + 1} / 10</span>
+                    <button onclick="changePage(1)" class="btn-neon !text-lg !py-3 !px-6 ${currentPage === 9 ? 'opacity-50 pointer-events-none' : ''}">NEXT ▶</button>
+                </div>
+            `;
+            
+            // MathJax 비동기 수식 렌더링 호출
+            if (window.MathJax) {
+                await MathJax.typesetPromise([container]);
+            }
+        }
+
+        function changePage(dir) {
+            currentPage = Math.max(0, Math.min(9, currentPage + dir));
+            renderMathPage();
+        }
+
+        function hideMath() { 
+            document.getElementById('screen-math').classList.add('hidden-screen'); 
+            document.getElementById('screen-menu').classList.remove('hidden-screen');
+        }
+
+        // --- STREAMING_CHUNK:Building Game System and HUD... ---
+    </script>
+
+    <!-- 4. 실시간 게임 화면 (HUD & WebCam) -->
+    <div id="screen-game" class="hidden-screen absolute inset-0 bg-black z-20 flex flex-col items-center justify-center">
+        <!-- MediaPipe Video Input -->
+        <video class="input_video"></video>
+        
+        <div class="relative w-full h-full max-w-7xl mx-auto overflow-hidden bg-gray-900 border-x border-cyan-900 shadow-2xl shadow-cyan-500/20">
+            <!-- 캔버스 (카메라 화면 + 네온 골격) -->
+            <canvas class="output_canvas absolute inset-0"></canvas>
+            
+            <!-- 로딩 화면 -->
+            <div id="loading-overlay" class="absolute inset-0 bg-black/90 flex flex-col items-center justify-center text-cyan-400 z-30">
+                <div class="animate-spin rounded-full h-24 w-24 border-t-4 border-b-4 border-cyan-400 mb-6"></div>
+                <h2 class="text-4xl orbitron tracking-widest text-glow">INITIALIZING OPTICS...</h2>
+                <p class="text-xl mt-4 text-gray-400">웹캠 접근을 허용하고 카메라 중앙에 서주세요.</p>
+            </div>
+
+            <!-- 사이버 HUD 오버레이 -->
+            <div id="game-ui" class="absolute inset-0 z-20 flex flex-col justify-between p-8 pointer-events-none hidden-screen">
+                
+                <!-- 상단: 타이머 및 실시간 데이터 -->
+                <div class="flex justify-between items-start w-full">
+                    <!-- 타이머 패널 -->
+                    <div class="glass-panel px-8 py-4 rounded-xl border-l-4 border-l-pink-500 flex flex-col">
+                        <span class="text-gray-400 text-sm orbitron mb-1">TOTAL ELAPSED TIME</span>
+                        <span id="main-timer" class="text-5xl font-bold orbitron text-pink-400 text-glow-pink">00:00.00</span>
+                    </div>
+                    
+                    <!-- 종료 버튼 -->
+                    <button onclick="stopGame()" class="btn-neon !border-red-500 !text-red-500 !py-2 !px-4 hover:!bg-red-500 hover:!text-white pointer-events-auto text-xl">
+                        ABORT
+                    </button>
+                </div>
+
+                <!-- 중앙: 미션 텍스트 및 졸라맨 그래픽 -->
+                <div class="flex flex-col items-center justify-center w-full my-auto mt-20">
+                    <div id="stickman-icon" class="mb-6 opacity-80 transition-transform duration-300 scale-125">
+                        <!-- JS에서 SVG 삽입 -->
+                    </div>
+                    <div class="bg-black/80 px-12 py-6 rounded-2xl border border-cyan-400 shadow-[0_0_30px_rgba(0,243,255,0.3)] text-center backdrop-blur-md">
+                        <span class="text-xl text-cyan-300 orbitron tracking-widest mb-2 block">CURRENT DIRECTIVE</span>
+                        <span id="current-mission-text" class="text-6xl md:text-8xl font-black text-white text-glow">미션 로딩중...</span>
+                        <p id="mission-desc" class="text-2xl text-gray-400 mt-4 font-light"></p>
+                    </div>
+                </div>
+
+                <!-- 하단: 실시간 각도 표시 및 스코어보드 -->
+                <div class="flex justify-between items-end w-full">
+                    <div class="glass-panel px-6 py-4 rounded-xl flex gap-6">
+                        <div class="flex flex-col">
+                            <span class="text-xs text-gray-500 orbitron">LEFT ANGLE (θ)</span>
+                            <span id="angle-left-txt" class="text-3xl font-bold text-cyan-400">000.0°</span>
+                        </div>
+                        <div class="w-px bg-gray-700"></div>
+                        <div class="flex flex-col">
+                            <span class="text-xs text-gray-500 orbitron">RIGHT ANGLE (θ)</span>
+                            <span id="angle-right-txt" class="text-3xl font-bold text-cyan-400">000.0°</span>
+                        </div>
+                    </div>
+
+                    <div id="lap-times" class="glass-panel p-4 rounded-xl max-h-48 overflow-y-auto w-64 text-sm font-mono flex flex-col gap-1 border-r-4 border-r-green-400">
+                        <span class="text-green-400 orbitron border-b border-gray-700 pb-2 mb-2">LAP RECORDS</span>
+                        <!-- 랩타임 기록 추가됨 -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 성공 시 오버레이 (Target Locked) -->
+            <div id="success-overlay" class="absolute inset-0 flex items-center justify-center z-40 hidden-screen bg-green-900/40 backdrop-blur-sm">
+                <div class="border-y-8 border-green-500 w-full py-10 bg-black/80 text-center transform scale-110">
+                    <h1 class="text-7xl md:text-9xl font-black text-green-400 text-glow-green orbitron tracking-widest italic">TARGET LOCKED</h1>
+                    <p class="text-3xl text-white mt-4 orbitron">GEOMETRIC CONDITION MET</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. 결과 및 랭킹 저장 화면 -->
+    <div id="screen-result" class="hidden-screen absolute inset-0 bg-black z-50 flex flex-col items-center justify-center p-8">
+        <div class="glass-panel p-12 max-w-2xl w-full text-center border-t-8 border-pink-500">
+            <h2 class="text-6xl text-white font-bold mb-4 orbitron text-glow">SIMULATION COMPLETE</h2>
+            <p class="text-2xl text-gray-400 mb-10">모든 기하학적 조건을 충족했습니다.</p>
+            
+            <div class="bg-black/50 p-6 rounded-xl mb-10 border border-gray-700">
+                <h3 class="text-xl text-gray-500 orbitron mb-2">FINAL TIME</h3>
+                <div id="final-score" class="text-7xl text-pink-400 font-black orbitron text-glow-pink">00:00.00</div>
+            </div>
+            
+            <div class="flex flex-col gap-4">
+                <input type="text" id="player-name" placeholder="이름(닉네임) 입력 (ENTER NICKNAME)" class="bg-gray-800 border-2 border-cyan-500 text-white text-2xl p-4 rounded-xl text-center outline-none focus:border-pink-500 transition">
+                <button onclick="saveRecord()" class="btn-neon !bg-cyan-900 hover:!bg-cyan-500 w-full">SAVE DATA TO ARCHIVE</button>
+                <button onclick="returnToHome()" class="mt-4 text-xl text-gray-500 hover:text-white underline">RETURN TO MAIN MENU</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 6. 랭킹 확인 화면 -->
+    <div id="screen-rank" class="hidden-screen absolute inset-0 bg-black/95 z-[90] p-10 md:p-20 flex flex-col items-center">
+        <h2 class="text-6xl md:text-7xl text-white mb-10 orbitron text-glow font-bold border-b border-cyan-500 pb-4">TOP PILOTS ARCHIVE</h2>
+        <div class="glass-panel w-full max-w-4xl p-8 rounded-2xl">
+            <div class="flex justify-between text-gray-500 orbitron text-xl border-b border-gray-700 pb-4 mb-4">
+                <span>RANK</span>
+                <span class="flex-1 text-center">PILOT NAME</span>
+                <span>TIME RECORD</span>
+            </div>
+            <div id="ranking-list" class="text-3xl flex flex-col gap-4 font-mono max-h-[50vh] overflow-y-auto">
+                <!-- 순위 렌더링 -->
+            </div>
+        </div>
+        <button onclick="hideRanking()" class="mt-12 text-3xl text-gray-400 hover:text-white transition underline orbitron">CLOSE ARCHIVE</button>
+    </div>
+
+    <script>
+        // --- 1. 미션 데이터 (고등 기하학 엄격한 판정) ---
+        const SVG_ICONS = {
+            acute: `<svg width="120" height="120" viewBox="0 0 100 100"><path d="M20,80 L50,20 L80,80" fill="none" stroke="#00f3ff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+            right: `<svg width="120" height="120" viewBox="0 0 100 100"><path d="M20,20 L20,80 L80,80" fill="none" stroke="#00f3ff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><rect x="20" y="60" width="20" height="20" fill="none" stroke="#00f3ff" stroke-width="4"/></svg>`,
+            obtuse: `<svg width="120" height="120" viewBox="0 0 100 100"><path d="M10,60 L50,80 L90,60" fill="none" stroke="#00f3ff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+            straight: `<svg width="120" height="120" viewBox="0 0 100 100"><path d="M10,50 L90,50" fill="none" stroke="#00f3ff" stroke-width="8" stroke-linecap="round"/></svg>`,
+            parallel: `<svg width="120" height="120" viewBox="0 0 100 100"><path d="M30,10 L30,90 M70,10 L70,90" fill="none" stroke="#00f3ff" stroke-width="8" stroke-linecap="round"/></svg>`,
+            cross: `<svg width="120" height="120" viewBox="0 0 100 100"><path d="M20,20 L80,80 M80,20 L20,80" fill="none" stroke="#00f3ff" stroke-width="8" stroke-linecap="round"/></svg>`,
+            circle: `<svg width="120" height="120" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" stroke="#00f3ff" stroke-width="8"/></svg>`
+        };
+
+        const missions = [
+            { id: 'acute', name: '예각 (ACUTE)', desc: '관절 각도 θ < 70°', icon: SVG_ICONS.acute },
+            { id: 'right', name: '직각 (RIGHT)', desc: '관절 각도 80° < θ < 100° (오차 허용)', icon: SVG_ICONS.right },
+            { id: 'obtuse', name: '둔각 (OBTUSE)', desc: '관절 각도 110° < θ < 160°', icon: SVG_ICONS.obtuse },
+            { id: 'straight', name: '평각 (STRAIGHT)', desc: '양팔 수평 170° < θ', icon: SVG_ICONS.straight },
+            { id: 'parallel', name: '평행선 (PARALLEL)', desc: '양팔 수직 평행 벡터 (상단 지향)', icon: SVG_ICONS.parallel },
+            { id: 'cross', name: '교차 (INTERSECT)', desc: 'X축 좌표 역전 교차', icon: SVG_ICONS.cross },
+            { id: 'circle', name: '원형 (CIRCLE)', desc: '양 손목 좌표의 근접 조우', icon: SVG_ICONS.circle }
+        ];
+
+        // --- 2. 기하학 핵심 연산 함수 (atan2 활용) ---
+        function calculateAngle(a, b, c) {
+            if (!a || !b || !c) return 0;
+            // 역삼각함수 atan2를 이용한 절대 방향각 계산 후 사이각 도출
+            const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
+            let angle = Math.abs(radians * 180.0 / Math.PI);
+            if (angle > 180.0) angle = 360 - angle;
+            return parseFloat(angle.toFixed(1)); // 소수점 1자리
+        }
+
+        function calculateDistance(a, b) {
+            if (!a || !b) return 999;
+            return Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
+        }
+
+        function checkPose(missionId, leftAngle, rightAngle, landmarks) {
+            const L_SH = landmarks[11], R_SH = landmarks[12];
+            const L_WR = landmarks[15], R_WR = landmarks[16];
+
+            switch(missionId) {
+                case 'acute': return (leftAngle > 20 && leftAngle < 70) || (rightAngle > 20 && rightAngle < 70);
+                case 'right': return (leftAngle >= 80 && leftAngle <= 100) || (rightAngle >= 80 && rightAngle <= 100);
+                case 'obtuse': return (leftAngle > 110 && leftAngle < 160) || (rightAngle > 110 && rightAngle < 160);
+                case 'straight': return leftAngle >= 165 && rightAngle >= 165;
+                case 'parallel': 
+                    if (L_WR.y < L_SH.y && R_WR.y < R_SH.y) {
+                        const shoulderDist = calculateDistance(L_SH, R_SH);
+                        const wristDist = calculateDistance(L_WR, R_WR);
+                        // 평행: 손목 거리가 어깨 거리와 비슷하며 위를 향할 때
+                        if(wristDist > shoulderDist * 0.7 && wristDist < shoulderDist * 1.3) return true;
+                    }
+                    return false;
+                case 'cross': return L_WR.x < R_WR.x; // 거울모드 상태에서 X 교차
+                case 'circle':
+                    if (L_WR.y < L_SH.y && R_WR.y < R_SH.y) {
+                        if (calculateDistance(L_WR, R_WR) < 0.1) return true; // 거리 차이 매우 좁음
+                    }
+                    return false;
+            }
+            return false;
+        }
+
+        // --- 3. 게임 상태 변수 ---
+        let isGameRunning = false;
+        let isPaused = false;
+        let currentMissionIdx = 0;
+        let poseHeldFrames = 0;
+        const REQUIRED_FRAMES = 15; // 약 0.5초 유지
+        
+        let startTime = 0;
+        let timerInterval;
+        let lapStartTime = 0;
+
+        let pose, camera;
+        const videoElement = document.getElementsByClassName('input_video')[0];
+        const canvasElement = document.getElementsByClassName('output_canvas')[0];
+        const canvasCtx = canvasElement.getContext('2d');
+
+        // --- STREAMING_CHUNK:MediaPipe Pose Tracking Engine... ---
+        function onResults(results) {
+            if (!isGameRunning) return;
+
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+            
+            if (results.poseLandmarks) {
+                // 사이버 네온 뼈대 그리기
+                drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#39ff14', lineWidth: 4});
+                drawLandmarks(canvasCtx, results.poseLandmarks, {color: '#ff00ea', lineWidth: 2, radius: 4});
+                
+                // 프라이버시 보호: 사이버 고글 + 🍓코 그리기
+                drawPrivacyMask(canvasCtx, results.poseLandmarks, canvasElement.width, canvasElement.height);
+
+                if (!isPaused) {
+                    processGameLogic(results.poseLandmarks);
+                }
+            } else {
+                document.getElementById('angle-left-txt').innerText = "OFF";
+                document.getElementById('angle-right-txt').innerText = "OFF";
+            }
+            canvasCtx.restore();
+        }
+
+        function drawPrivacyMask(ctx, landmarks, width, height) {
+            const nose = landmarks[0];
+            const leftEye = landmarks[2]; // 대략적인 눈 위치
+            const rightEye = landmarks[5];
+
+            if (nose && leftEye && rightEye) {
+                const nx = nose.x * width;
+                const ny = nose.y * height;
+                const lx = leftEye.x * width;
+                const ly = leftEye.y * height;
+                const rx = rightEye.x * width;
+                const ry = rightEye.y * height;
+
+                // 1. 사이버 고글 (눈 가리기)
+                ctx.fillStyle = '#000000';
+                ctx.shadowColor = '#00f3ff';
+                ctx.shadowBlur = 15;
+                const eyeDist = Math.abs(rx - lx);
+                const gWidth = eyeDist * 3;
+                const gHeight = eyeDist * 1.5;
+                const cx = (lx + rx) / 2;
+                const cy = (ly + ry) / 2;
+                
+                ctx.fillRect(cx - gWidth/2, cy - gHeight/2, gWidth, gHeight);
+                // 고글 테두리 네온
+                ctx.strokeStyle = '#00f3ff';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(cx - gWidth/2, cy - gHeight/2, gWidth, gHeight);
+
+                // 2. 🍓 딸기코 마스킹
+                ctx.shadowBlur = 0; // 코는 선명하게
+                ctx.font = `${Math.max(40, eyeDist * 1.5)}px Arial`;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText("🍓", nx, ny);
+            }
+        }
+
+        function processGameLogic(landmarks) {
+            if(currentMissionIdx >= missions.length) return;
+            
+            const L_SH = landmarks[11], R_SH = landmarks[12];
+            const L_EL = landmarks[13], R_EL = landmarks[14];
+            const L_WR = landmarks[15], R_WR = landmarks[16];
+
+            const leftAngle = calculateAngle(L_SH, L_EL, L_WR);
+            const rightAngle = calculateAngle(R_SH, R_EL, R_WR);
+
+            // 실시간 각도 HUD 출력
+            document.getElementById('angle-left-txt').innerText = leftAngle + "°";
+            document.getElementById('angle-right-txt').innerText = rightAngle + "°";
+
+            const mission = missions[currentMissionIdx];
+            if (checkPose(mission.id, leftAngle, rightAngle, landmarks)) {
+                poseHeldFrames++;
+                if (poseHeldFrames >= REQUIRED_FRAMES) {
+                    missionSuccess();
+                }
+            } else {
+                poseHeldFrames = 0;
+            }
+        }
+
+        // --- STREAMING_CHUNK:Game Flow Control & UI Timers... ---
+        function formatTime(ms) {
+            let totalSec = Math.floor(ms / 1000);
+            let m = String(Math.floor(totalSec / 60)).padStart(2, '0');
+            let s = String(totalSec % 60).padStart(2, '0');
+            let msPart = String(Math.floor((ms % 1000) / 10)).padStart(2, '0');
+            return `${m}:${s}.${msPart}`;
+        }
+
+        function updateTimer() {
+            if(!isGameRunning || isPaused) return;
+            let current = Date.now() - startTime;
+            document.getElementById('main-timer').innerText = formatTime(current);
+        }
+
+        function missionSuccess() {
+            isPaused = true;
+            poseHeldFrames = 0;
+            
+            // 랩타임 기록
+            const now = Date.now();
+            const lapTime = now - lapStartTime;
+            const totalElapsed = now - startTime;
+            lapStartTime = now;
+
+            const lapList = document.getElementById('lap-times');
+            lapList.innerHTML += `<div>LAP ${currentMissionIdx+1}: <span class="text-white">${formatTime(lapTime)}</span></div>`;
+            lapList.scrollTop = lapList.scrollHeight;
+
+            // 시각적 피드백
+            const overlay = document.getElementById('success-overlay');
+            overlay.classList.remove('hidden-screen');
+
+            setTimeout(() => {
+                overlay.classList.add('hidden-screen');
+                currentMissionIdx++;
+                
+                if (currentMissionIdx >= missions.length) {
+                    endGame(totalElapsed);
+                } else {
+                    startNextMission();
+                }
+            }, 1500); // 1.5초 딜레이 후 다음 미션 진행
+        }
+
+        function startNextMission() {
+            const mission = missions[currentMissionIdx];
+            document.getElementById('current-mission-text').innerText = mission.name;
+            document.getElementById('mission-desc').innerText = mission.desc;
+            document.getElementById('stickman-icon').innerHTML = mission.icon;
+            isPaused = false;
+        }
+
+        async function initMediaPipe() {
+            if (!pose) {
+                pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
+                pose.setOptions({
+                    modelComplexity: 1, smoothLandmarks: true, 
+                    enableSegmentation: false, smoothSegmentation: false,
+                    minDetectionConfidence: 0.6, minTrackingConfidence: 0.6
+                });
+                pose.onResults(onResults);
+            }
+            if (!camera) {
+                camera = new Camera(videoElement, {
+                    onFrame: async () => { if(isGameRunning) await pose.send({image: videoElement}); },
+                    width: 1280, height: 720
+                });
+            }
+        }
+
+        async function startGame() {
+            document.getElementById('screen-home').classList.add('hidden-screen');
+            document.getElementById('screen-game').classList.remove('hidden-screen');
+            document.getElementById('loading-overlay').classList.remove('hidden-screen');
+            document.getElementById('game-ui').classList.add('hidden-screen');
+            document.getElementById('lap-times').innerHTML = '<span class="text-green-400 orbitron border-b border-gray-700 pb-2 mb-2">LAP RECORDS</span>';
+
+            canvasElement.width = window.innerWidth;
+            canvasElement.height = window.innerHeight;
+
+            isGameRunning = true;
+            isPaused = true;
+            currentMissionIdx = 0;
+            poseHeldFrames = 0;
+
+            await initMediaPipe();
+            camera.start().then(() => {
+                document.getElementById('loading-overlay').classList.add('hidden-screen');
+                document.getElementById('game-ui').classList.remove('hidden-screen');
+                
+                startTime = Date.now();
+                lapStartTime = startTime;
+                timerInterval = setInterval(updateTimer, 33);
+                
+                startNextMission();
+            });
+        }
+
+        function stopGame() {
+            isGameRunning = false;
+            clearInterval(timerInterval);
+            if (camera) camera.stop();
+            document.getElementById('screen-game').classList.add('hidden-screen');
+            document.getElementById('screen-home').classList.remove('hidden-screen');
+        }
+
+        // --- 4. 종료 및 기록 랭킹 시스템 ---
+        let finalTimeMs = 0;
+
+        // ⚠️ 구글 앱스 스크립트 웹앱 배포 URL
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxPeuoVLQbKwNdDZjHWrPI0UP0DgXVyNJS7EJHVHTKFD3IKLV4Q34uGHOrvR0cM58rPRw/exec";
+
+        function endGame(totalTime) {
+            isGameRunning = false;
+            clearInterval(timerInterval);
+            finalTimeMs = totalTime;
+            
+            document.getElementById('screen-game').classList.add('hidden-screen');
+            document.getElementById('screen-result').classList.remove('hidden-screen');
+            document.getElementById('final-score').innerText = formatTime(totalTime);
+        }
+
+        function saveRecord() {
+            const name = document.getElementById('player-name').value.trim() || "UNKNOWN PILOT";
+
+            // 1. 기존 로컬 저장 로직 (네트워크 실패 시 백업용)
+            let list = JSON.parse(localStorage.getItem('geometryRank') || '[]');
+            list.push({ name: name, time: finalTimeMs, formattedStr: formatTime(finalTimeMs) });
+            list.sort((a, b) => a.time - b.time);
+            list = list.slice(0, 10);
+            localStorage.setItem('geometryRank', JSON.stringify(list));
+
+            // 2. 구글 시트로 데이터 전송 (API 통신)
+            const payload = {
+                name: name,
+                formattedStr: formatTime(finalTimeMs),
+                timeMs: finalTimeMs
+            };
+
+            fetch(WEB_APP_URL, {
+                method: 'POST',
+                body: JSON.stringify(payload),
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8', // CORS 프리플라이트 방지용 설정
+                }
+            }).then(response => response.json())
+              .then(result => {
+                  if (result.status === "success") {
+                      alert("✅ 기록이 구글 시트 아카이브에 성공적으로 저장되었습니다.");
+                  } else {
+                      console.error("서버 오류:", result.message);
+                      alert("⚠️ 서버 저장 중 오류가 발생했습니다. (로컬에는 저장됨)\n" + result.message);
+                  }
+              })
+              .catch(error => {
+                  console.error("Error:", error);
+                  alert("⚠️ 구글 시트 전송 중 네트워크 오류가 발생했습니다. (로컬에는 저장됨)");
+              });
+
+            returnToHome();
+        }
+
+        function returnToHome() {
+            document.getElementById('screen-result').classList.add('hidden-screen');
+            document.getElementById('screen-home').classList.remove('hidden-screen');
+            if (camera) camera.stop();
+        }
+
+        // --- 5. 랭킹 조회: 구글 시트에서 GET으로 데이터 수신 ---
+        async function showRanking() {
+            document.getElementById('screen-home').classList.add('hidden-screen');
+            document.getElementById('screen-rank').classList.remove('hidden-screen');
+
+            const container = document.getElementById('ranking-list');
+            container.innerHTML = `<div class="text-center text-gray-500 py-10">LOADING ARCHIVE...</div>`;
+
+            try {
+                const res = await fetch(WEB_APP_URL, { method: 'GET' });
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                const list = await res.json();
+
+                renderRankingList(list);
+            } catch (error) {
+                console.error("랭킹 로드 실패:", error);
+                // 네트워크/배포 오류 시 로컬 백업 기록이라도 표시
+                const localList = JSON.parse(localStorage.getItem('geometryRank') || '[]').map(r => ({
+                    name: r.name, formattedStr: r.formattedStr
+                }));
+                if (localList.length > 0) {
+                    renderRankingList(localList);
+                } else {
+                    container.innerHTML = `<div class="text-center text-red-400 py-10">서버 연결 실패. 앱스 스크립트 배포 상태를 확인하세요.</div>`;
+                }
+            }
+        }
+
+        function renderRankingList(list) {
+            const container = document.getElementById('ranking-list');
+            if (!list || list.length === 0) {
+                container.innerHTML = `<div class="text-center text-gray-500 py-10">NO DATA FOUND IN ARCHIVE.</div>`;
+                return;
+            }
+            container.innerHTML = list.map((r, i) => `
+                <div class="flex justify-between items-center bg-gray-800/50 p-4 rounded-lg border border-gray-700 hover:border-cyan-500 transition">
+                    <span class="text-pink-500 w-16 text-left">#${i+1}</span>
+                    <span class="flex-1 text-center text-white truncate px-4">${r.name}</span>
+                    <span class="text-cyan-400 w-32 text-right">${r.formattedStr}</span>
+                </div>
+            `).join('');
+        }
+
+        function hideRanking() {
+            document.getElementById('screen-rank').classList.add('hidden-screen');
+            document.getElementById('screen-home').classList.remove('hidden-screen');
+        }
+    </script>
+</body>
+</html>
